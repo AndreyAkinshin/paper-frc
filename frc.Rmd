@@ -1,0 +1,475 @@
+---
+title: Finite-sample Rousseeuw-Croux scale estimators
+author: |
+  Andrey Akinshin  
+  Huawei Research, andrey.akinshin@gmail.com
+abstract: |
+  The Rousseeuw-Croux $S_n$, $Q_n$ scale estimators and the median absolute deviation $\MAD_n$
+    can be used as consistent estimators for the standard deviation under normality.
+  All of them are highly robust: the breakdown point of all three estimators is $50\%$.
+  However, $S_n$ and $Q_n$ are much more efficient than\ $\MAD_n$:
+    their asymptotic Gaussian efficiency values are $58\%$ and $82\%$ respectively compared to $37\%$ for\ $\MAD_n$.
+  Although these values look impressive, they are only asymptotic values.
+  The actual Gaussian efficiency of $S_n$ and $Q_n$ for small sample sizes
+    is noticeable lower than in the asymptotic case.
+
+  The original work by Rousseeuw and Croux (1993)
+    provides only rough approximations of the finite-sample bias-correction factors for $S_n$, $Q_n$
+    and brief notes on their finite-sample efficiency values.
+  In this paper, we perform extensive Monte-Carlo simulations in order to obtain refined values of the
+    finite-sample properties of the Rousseeuw-Croux scale estimators.
+  We present accurate values of the bias-correction factors and Gaussian efficiency for small samples ($n \leq 100$)
+    and prediction equations for samples of larger sizes.
+
+  **Keywords:** statistical dispersion, robustness, statistical efficiency, bias correction, Rousseeuw-Croux scale estimators.
+author-meta: Andrey Akinshin
+lang: en-US
+bibliography: references.bib
+biblio-style: alphabetic
+biblatexoptions: [sorting=anyt]
+link-citations: true
+colorlinks: true
+linkcolor: linkcolor
+citecolor: citecolor
+urlcolor: urlcolor
+output:
+  bookdown::pdf_document2:
+    extra_dependencies: ["amsmath", "float", "csquotes"]
+    citation_package: biblatex
+    number_sections: true
+    keep_tex: true
+    toc: false
+    includes:
+      in_header: ["tex/preamble.tex", "tex/definitions.tex" ]
+      before_body: "tex/before_body.tex"
+---
+
+```{r setup, include=FALSE}
+source("main.R", local = knitr::knit_global())
+```
+
+# Introduction {#sec:intro}
+
+The standard deviation is a classic measure of statistical dispersion which is used to describe the normal distribution.
+Unfortunately, it is not robust: a single extreme outlier can completely distort the standard deviation estimations.
+That is why the robust statistics provide a plethora of robust dispersion estimators
+  which are resistant to gross errors.
+With proper scale constants,
+  these estimators can be asymptotically consistent estimators for the standard deviation under normality.
+
+One of the most popular robust dispersion estimators is the median absolute deviation around the median.
+For a sample $x = \{ x_1, x_2, \ldots, x_n \}$ of i.i.d. random variables, it is defined as follows:
+
+$$
+\MAD_n(x) = B_n \cdot \med_i |x_i - \med_j x_j|,
+$$
+
+where $\med$ is the sample median, $B_n$ is a scale constant.
+We use $B_n$ to make $\MAD_n$ an unbiased Fisher-consistent (see [@fisher1922]) estimator
+  for the standard deviation under the normal distribution.
+The asymptotic value of $B_n$ is well-known and given by
+
+$$
+B_\infty = \frac{1}{\Phi^{-1}(3/4)} \approx 1.4826022185056 \approx 1.4826,
+$$
+
+where $\Phi^{-1}$ is the quantile function of the standard normal distribution.
+For finite samples, we have to introduce bias-correction factors $b_n$
+  (approximated values can be found in [@akinshin2022madfactors] and [@park2020])
+  such that $B_n = B_\infty \cdot b_n$.
+
+The median absolute deviation is considered as a robust replacement for the standard deviation
+  in various statistical textbooks including
+  [@mosteller1977; @hampel1986; @huber2009; @wilcox2016; @maronna2019; @jureckova2019].
+It has the highest possible breakdown point of $50\%$ (see [@rousseeuw1987, p14]).
+However, its asymptotic relative statistical efficiency to the standard deviation under normality (Gaussian efficiency)
+  is only $36.75\%$.
+Thus, a straightforward replacement of the standard deviation by the median absolute deviation
+  significantly reduces the statistical efficiency of the used dispersion estimator.
+This leads to a poor precision level of the obtained estimations.
+
+There are numerous ways to increase efficiency.
+For example, we can estimate the $\MAD_n$ using more efficient median estimators
+  like the Harrell-Davis quantile estimator (see [@harrell1982]) or its trimmed modification (see [@akinshin2022thdqe]).
+Using adjusted scale constants (see [@akinshin2022madfactors]),
+  the updated $\MAD_n$ can be also used as a consistent estimator for the standard deviation under normality.
+This approach has slightly higher Gaussian efficiency and lower breakdown point.
+It is reasonable to use it only if we are interested in the accurate estimations of the $\MAD$ itself.
+However, it is not the optimal way to estimate the standard deviation.
+There are also other alternatives like
+  the quantile absolute deviation ([@akinshin2022qad]),
+  the interquartile and interdecile ranges,
+  the trimmed standard deviation (see [@lax1985]),
+  the Winsorized standard deviation (see [@wilcox2016]),
+  the biweight midvariance (see [@lax1985]),
+  the Shamos estimator (see [@shamos1976]),
+  and others (e.g., see [@daniell1920]).
+Each of these estimators maintains its own balance between statistical efficiency and robustness.
+Typically, higher efficiency is achieved by lowering the value of the breakdown point.
+
+In [@rousseeuw1993], Peter J. Rousseeuw and Christophe Croux suggested using two new scale estimators: $S_n$ and\ $Q_n$.
+Both of them have the breakdown point of $50\%$, but they are more efficient than $\MAD_n$:
+  the asymptotic Gaussian efficiency of $S_n$ and $Q_n$ are $58\%$ and $82\%$ respectively.
+Such exceptional efficiency makes them decent replacements
+  for the median absolute deviation as robust measures of scale.
+While the algorithmic complexity of straightforward implementations for $S_n$ and $Q_n$ is $\BigO(n^2)$,
+  [@croux1992] presents a fast evaluation algorithm that takes only $\BigO(n \log n)$.
+A fast algorithm for online computation of $Q_n$ can be found in [@cafaro2020].
+In [@smirnov2014],
+  a parametric family of M-estimators of scale based on the $Q_n$ estimator is presented,
+  which allows obtaining even higher statistical efficiency.
+
+The $S_n$ estimator is given by
+
+$$
+S_n(x) = C_n \cdot \lomed_i \; \himed_j \; |x_i - x_j|,
+$$
+
+  where
+    $\lomed$ and $\himed$ are the $\lfloor (n+1) / 2 \rfloor^\textrm{th}$ and
+    $(\lfloor n / 2 \rfloor + 1)^\textrm{th}$ order statistics out of $n$ numbers,
+    $C_n$ is a scale constant that we use
+      to make $S_n$ an unbiased estimator for the standard deviation under normality.
+The asymptotic value of $C_n$ can be obtained (see [@rousseeuw1993, p.1275, Theorem 2]) as a solution of the equation
+  $\Phi(\Phi^{-1}(3/4) + 1 / C_\infty) - \Phi(\Phi^{-1}(3/4) - 1 / C_\infty) = 1/2$.
+Its approximated value is
+
+$$
+C_\infty \approx 1.19259855312321 \approx 1.1926.
+$$
+
+The $Q_n$ estimator is given by
+
+$$
+Q_n(x) = D_n \cdot \{ |x_i-x_j|;\; i < j \}_{(k)},
+$$
+
+  where
+    $\{\cdot\}_{(k)}$ is the $k^\textrm{th}$ order statistic of the given set,
+    $k = \binom{\lfloor n / 2 \rfloor + 1}{2}$ (asymptotically, it converges to the first quartile),
+    $D_n$ is a scale constant that we use
+      to make $Q_n$ an unbiased estimator for the standard deviation under normality.
+The asymptotic value of $D_n$ is given by (see [@rousseeuw1993, p.1277])
+
+$$
+D_\infty = \frac{1}{\sqrt{2} \Phi^{-1}(5/8)} \approx 2.21914446598508 \approx 2.2191.
+$$
+
+Note that [@croux1992], [@rousseeuw1993], and some other papers contain a typo:
+  they use $D_\infty = 2.2219$ instead of 2.2191.
+This slight mistake is widespread across various papers and statistical packages.
+In this paper, we use the correct value of $2.2191$.
+
+\bigskip
+\clearpage
+
+For finite samples, we have to introduce bias-correction factors $c_n$ and $d_n$
+  such that $C_n = C_\infty \cdot c_n$, $D_n = D_\infty \cdot d_n$.
+In [@croux1992], rough approximations of $c_n$ and $d_n$ are given.
+The values for $n \leq 9$ from [@croux1992] are presented in Table\ \@ref(tab:factors-rc).
+
+Table: (\#tab:factors-rc) $S_n$ and $Q_n$ finite-sample bias-correction factors from [@croux1992].
+
+| n     | 2     | 3     | 4     | 5     | 6     | 7     | 8     | 9     |
+|-------|-------|-------|-------|-------|-------|-------|-------|-------|
+| $c_n$ | 0.743 | 1.851 | 0.954 | 1.351 | 0.993 | 1.198 | 1.005 | 1.131 |
+| $d_n$ | 0.399 | 0.994 | 0.512 | 0.844 | 0.611 | 0.857 | 0.669 | 0.872 |
+
+For $n \geq 10$, [@croux1992] suggests using the following prediction equations:
+
+\begin{equation}
+c_n = \begin{cases}
+\frac{n}{n - 0.9}, & \quad \textrm{for odd}\; n,\\
+1, & \quad \textrm{for even}\; n,
+\end{cases}
+\label{eq:croux-cn}
+\end{equation}
+
+\begin{equation}
+d_n = \begin{cases}
+\frac{n}{n + 1.4},& \quad \textrm{for odd}\; n,\\
+\frac{n}{n + 3.8},& \quad \textrm{for even}\; n.
+\end{cases}
+\label{eq:croux-qn}
+\end{equation}
+
+\bigskip
+
+A fast implementation of $S_n$ and $Q_n$ (based on [@croux1992])
+  is available in the R package `robustbase` (see [@robustbase]).
+At the present moment,
+  the latest version of this package (0.95-0) uses^[https://github.com/cran/robustbase/blob/0.95-0/R/qnsn.R#L56]
+  adjusted values of $d_n$ for $n \leq 12$ listed in Table\ \@ref(tab:factors-rb).
+
+Table: (\#tab:factors-rb) $Q_n$ finite-sample bias-correction factors from `robustbase 0.95-0`.
+
+| n     | 2        | 3       | 4       | 5       | 6       | 7       | 8       | 9       | 10      | 11      | 12      |
+|-------|----------|---------|---------|---------|---------|---------|---------|---------|---------|---------|---------|
+| $d_n$ | 0.399356 | 0.99365 | 0.51321 | 0.84401 | 0.61220 | 0.85877 | 0.66993 | 0.87344 | 0.72014 | 0.88906 | 0.75743 |
+
+For $n > 12$, the following prediction equations are used^[https://github.com/cran/robustbase/blob/0.95-0/R/qnsn.R#L13]:
+
+\begin{equation}
+d_n = \begin{cases}
+\big( 1 + 1.60188 n^{-1} - 2.1284 n^{-2} - 5.172 n^{-3} \big)^{-1},& \quad \textrm{for odd}\; n,\\
+\big( 1 + 3.67561 n^{-1} + 1.9654 n^{-2} + 6.987 n^{-3} - 77 n^{-4} \big)^{-1},& \quad \textrm{for even}\; n.
+\end{cases}
+\label{eq:robustbase-qn}
+\end{equation}
+
+\bigskip
+
+Speaking of the finite-sample Gaussian efficiency,
+  [@rousseeuw1993] contains only a short note about the loss of $Q_n$ efficiency at small sample sizes
+  (see [@rousseeuw1993, p1278, before Theorem 7]),
+  and a short list of roughly approximated standardized variances of $\MAD_n$, $\Sn$, $\Qn$, and $\SD_n$
+  for $n \in \{ 10, 20, 40, 60, 80, 100, 200 \}$ under normality (see [@rousseeuw1993, Table 2]).
+These data are not enough
+  to make a reasonable decision on a proper dispersion estimator for a small sample of the given size.
+
+In this paper, we obtain refined values of the finite-sample bias-correction factors of $\Sn$ and $\Qn$
+  (which are more accurate than values from [@croux1992] and [@robustbase])
+  and the corresponding finite-sample Gaussian efficiency values
+  using extensive Monte-Carlo simulations.
+
+\clearpage
+
+# Simulation study {#sec:sim}
+
+In this section, we perform two simulation studies in order to obtain finite-sample properties of $\Sn$ and $\Qn$:
+  the bias-correction factors for $\Sn$ and $\Qn$ (Section\ \@ref(sec:sim-factors)),
+  the Gaussian efficiency values (Section\ \@ref(sec:sim-efficiency)).
+
+## Simulation 1: Refined finite-sample bias-correction factors {#sec:sim-factors}
+
+Since $C_n = 1/\E[\Sn(X)]$, $D_n = 1/\E[\Qn(X)]$ and $c_n = C_n/C_{\infty}$, $d_n = D_n/D_{\infty}$,
+  the values of the finite-sample consistency constants and the corresponding bias-correction factors
+  for $\Sn$ and $\Qn$ can be obtained
+  by estimating the expected value of $\Sn(x)$ and $\Qn(x)$ using the Monte-Carlo method.
+We perform the simulation according to the following scheme:
+
+\begin{algorithm}[H]
+\ForEach{$n \in \{ 2..100, \ldots, `r format_int_latex(max(settings$consistency$ns))` \}$}{
+  $\textit{repetitions} \gets \textbf{when} \,\{ n \leq 100 \to `r format_int_latex(settings$consistency$repetitions1)`;\; n > 100 \to `r format_int_latex(settings$consistency$repetitions2)` \}$\\
+  \For{$i \gets 1..\textit{repetitions}$}{
+        $x \gets \textrm{GenerateRandomSample}(\textrm{Distribution} = \mathcal{N}(0, 1),\, \textrm{SampleSize} = n)$\\
+        $y_{\operatorname{S},i} \gets \Sn(x)$\\
+        $y_{\operatorname{Q},i} \gets \Qn(x)$
+  }
+  $c_n \gets 1 \;/\; (\sum y_{\operatorname{S},i} / \textit{repetitions}) \;/\; 1.19259855312321$\\
+  $d_n \gets 1 \;/\; (\sum y_{\operatorname{Q},i} / \textit{repetitions}) \;/\; 2.21914446598508$
+}
+\end{algorithm}
+
+The estimated $c_n,\, d_n$ values are presented in Table\ \@ref(tab:factors).
+The corresponding plots for $2 \leq n \leq 100$
+  are shown in Figure\ \@ref(fig:factors-sn)a and Figure\ \@ref(fig:factors-qn)a.
+
+Following the approach from [@hayes2014],
+  we are going to draw prediction $c_n$ and $d_n$ equations for $n > 100$ as $1 + \alpha n^{-1} + \beta n^{-2}$.
+Using least squares on the values from Table\ \@ref(tab:factors) for $100 < n \leq 1000$ (separately for odd and even values),
+  we can obtain approximated values of $\alpha$ and $\beta$,
+  which give us the following equations:
+
+\begin{equation}
+c_n = \begin{cases}
+1
+  `r format_double_latex(get_bias_coefficients("sn", 1)[1])` \cdot n^{-1}
+  `r format_double_latex(get_bias_coefficients("sn", 1)[2])` \cdot n^{-2},& \quad \textrm{for odd}\; n,\\
+1
+  `r format_double_latex(get_bias_coefficients("sn", 0)[1])` \cdot n^{-1}
+  `r format_double_latex(get_bias_coefficients("sn", 0)[2])` \cdot n^{-2},& \quad \textrm{for even}\; n,\\
+\end{cases}
+\label{eq:new-sn}
+\end{equation}
+
+\begin{equation}
+d_n = \begin{cases}
+1
+  `r format_double_latex(get_bias_coefficients("qn", 1)[1])` \cdot n^{-1}
+  `r format_double_latex(get_bias_coefficients("qn", 1)[2])` \cdot n^{-2},& \quad \textrm{for odd}\; n,\\
+1
+  `r format_double_latex(get_bias_coefficients("qn", 0)[1])` \cdot n^{-1}
+  `r format_double_latex(get_bias_coefficients("qn", 0)[2])` \cdot n^{-2},& \quad \textrm{for even}\; n.\\
+\end{cases}
+\label{eq:new-qn}
+\end{equation}
+
+The actual and predicted values of $c_n,\, d_n$
+  for $100 < n \leq `r format_int_latex(max(settings$consistency$ns))`$
+  are shown in Figure\ \@ref(fig:factors-sn)b and Figure\ \@ref(fig:factors-qn)b respectively.
+The obtained prediction Equations\ \@ref(eq:new-sn) and \@ref(eq:new-qn) look quite accurate:
+  the maximum observed absolute difference between the actual and predicted values
+  is $\approx `r inline_factor_predicted_diff("sn")`$ for $c_n$
+  and $\approx `r inline_factor_predicted_diff("qn")`$ for $d_n$.
+
+Now let us compare the obtained values from Table\ \@ref(tab:factors) and predicted values based on
+  Equation\ \@ref(eq:croux-cn) and Equation\ \@ref(eq:croux-qn) (the [@croux1992] approach).
+The maximum observed absolute difference
+  is $\approx `r inline_factor_rc_diff("sn")`$ for $c_n$
+  and $\approx `r inline_factor_rc_diff("qn")`$ for $d_n$
+  (observed for $n = `r inline_factor_rc_diff("sn", "n")`$ and $n = `r inline_factor_rc_diff("qn", "n")`$ respectively),
+  which can introduce a noticeable systematic error in the long run.
+
+The maximum observed absolute difference between values from Table\ \@ref(tab:factors)
+  and predicted values based on Equation\ \@ref(eq:robustbase-qn) (the [@robustbase] approach)
+  is $\approx `r inline_factor_rb_diff()`$ for $d_n$
+  (observed for $n = `r inline_factor_rb_diff("n")`$),
+  which is insignificant from a practical point of view.
+However, Equation\ \@ref(eq:new-qn) looks more simple than Equation\ \@ref(eq:robustbase-qn).
+
+\clearpage
+
+```{r factors-sn, fig.cap="Finite-sample bias-correction factors for $\\Sn$.", fig.height=8.5}
+figure_factors("sn")
+```
+
+\clearpage
+
+```{r factors-qn, fig.cap="Finite-sample bias-correction factors for $\\Qn$.", fig.height=8.5}
+figure_factors("qn")
+```
+
+\clearpage
+
+```{r factors}
+table_factors()
+```
+
+\clearpage
+
+## Simulation 2: Finite-sample Gaussian efficiency {#sec:sim-efficiency}
+
+In this simulation study, we evaluate the finite-sample Gaussian efficiency of $\MAD_n$, $\Sn$, and $\Qn$.
+As for the baseline, we consider the unbiased standard deviation $\SD_n$ of the normal distribution:
+
+$$
+\SD_n(X) = \sqrt{\frac{1}{n} \sum_{i=1}^n (X_i - \bar{X})^2} \bigg/ c_4(n), \quad
+c_4(n) = \sqrt{\frac{2}{n-1}}\frac{\Gamma(\frac{n}{2})}{\Gamma(\frac{n-1}{2})}.
+$$
+
+For the $\MAD_n$, we use bias-correction factors from [@akinshin2022madfactors].
+For $\Sn$ and $\Qn$, we use freshly obtained bias-correction factors from Table\ \@ref(tab:factors) and
+  Equations\ \@ref(eq:new-sn) and \@ref(eq:new-qn).
+
+For an unbiased scale estimator $T_n$, the Gaussian efficiency is defined as follows:
+
+\begin{equation}
+e(T_n) = \frac{\V[\SD_n]}{\V[T_n]}.
+\label{eq:dispersion-efficiency}
+\end{equation}
+
+We also consider the concept of the *standardized asymptotic variance* of a scale estimator which was
+  proposed in [@daniell1920] and advocated in [@rousseeuw1993, p1276], [@bickel1976, p502], and [@huber2009, p3]:
+
+\begin{equation}
+\V_s[T_n] = \frac{n \cdot \V[T_n]}{\E[T_n]^2}
+\label{eq:svar}
+\end{equation}
+
+We suggest overriding Equation\ \@ref(eq:dispersion-efficiency) using $\V_s$:
+
+\begin{equation}
+e(T_n) = \frac{\V_s[\SD_n]}{\V_s[T_n]}.
+\label{eq:dispersion-efficiency2}
+\end{equation}
+
+Equations\ \@ref(eq:dispersion-efficiency) and \@ref(eq:dispersion-efficiency2) are equivalent for unbiased estimators
+  since $\E[T_n] = 1$.
+However, we operate only with approximations of the consistency constants
+  for the $\MAD_n$, $\Sn$ and $\Qn$ (see Table\ \@ref(tab:factors)).
+The difference between the actual and approximated values
+  of the consistency constants is almost negligible in practice,
+  but it still introduces minor errors.
+In order to slightly improve the accuracy of the estimated Gaussian efficiency values, we prefer using
+  Equation\ \@ref(eq:dispersion-efficiency2) in our calculations.
+
+We perform the simulation using the Monte-Carlo method according to the following scheme:
+
+\begin{algorithm}[H]
+\ForEach{$n \in \{  2..100, \ldots, `r format_int_latex(max(settings$efficiency$ns))` \}$}{
+  $\textit{repetitions} \gets \textbf{when} \,\{ n \leq 100 \to `r format_int_latex(settings$efficiency$repetitions1)`;\; n > 100 \to `r format_int_latex(settings$efficiency$repetitions2)` \}$\\
+  \For{$i \gets 1..\textit{repetitions}$}{
+    $x \gets \textrm{GenerateRandomSample}(\textrm{Distribution} = \mathcal{N}(0, 1),\, \textrm{SampleSize} = n)$\\
+    $y_{\SD,i} \gets \SD_n(x)$\\
+    $y_{\MAD,i} \gets \MAD_n(x)$\\
+    $y_{\operatorname{S},i} \gets \Sn(x)$\\
+    $y_{\operatorname{Q},i} \gets \Qn(x)$\\
+  }
+  $e(\MAD_n) \gets \V_s(y_{\SD,\{i\}}) \;/\; \V_s(y_{\MAD,\{i\}})$\\
+  $e(\Sn) \gets \V_s(y_{\SD,\{i\}}) \;/\; \V_s(y_{\operatorname{S},\{i\}})$\\
+  $e(\Qn) \gets \V_s(y_{\SD,\{i\}}) \;/\; \V_s(y_{\operatorname{Q},\{i\}})$\\
+}
+\end{algorithm}
+
+The estimated Gaussian efficiency values are presented in Table\ \@ref(tab:tab-efficiency).
+The corresponding plots for $3 \leq n \leq 100$ and $100 \leq n \leq 1\;000$
+  are shown in Figure\ \@ref(fig:fig-efficiency).
+
+As we can see, the actual finite-sample Gaussian efficiency of $\Sn$ and $\Qn$ on small samples are noticeable smaller than
+  the corresponding asymptotic values.
+For example, $e(\operatorname{S}_7) \approx 47\%$ and $e(\operatorname{Q}_7) \approx 51\%$
+  compared to $\approx 58\%$ and $\approx 82\%$ in the asymptotic case.
+However, the finite-sample $\Sn$ and $\Qn$ are still more efficient than $\MAD_n$.
+
+\clearpage
+
+```{r fig-efficiency, fig.cap="Finite-sample Gaussian efficiency of $\\MAD_n$, $\\Sn$, $\\Qn$.", fig.height=8.5}
+figure_efficiency()
+```
+
+\clearpage
+
+```{r tab-efficiency}
+table_efficiency()
+```
+
+\clearpage
+
+# Summary {#sec:summary}
+
+In this paper, we revised the finite-sample properties of the Rousseeuw-Croux $S_n$ and $Q_n$ scale estimators.
+
+Firstly, we obtained refined finite-samples bias-correction factors for $S_n$ and $Q_n$,
+  which allows using them as robust consistent estimators for the standard deviation under normality.
+The new factor values are described by Table\ \@ref(tab:factors) and
+  prediction Equations\ \@ref(eq:new-sn) and \@ref(eq:new-qn).
+These values are more accurate than the original values from [@croux1992].
+We recommend using the presented values in order to reduce the systematic bias of obtained estimations.
+
+Secondly, we evaluated the finite-sample Gaussian efficiency values for $S_n$ and $Q_n$
+  (Table\ \@ref(tab:tab-efficiency)),
+  which are noticeably smaller than the corresponding asymptotic values.
+The knowledge of the actual finite-sample efficiency
+  is essential for the reasonable decision of a proper scale estimator.
+The usage of asymptotic values in finite cases may also lead to poor choice of the target sample size,
+  which would give insufficient statistical efficiency.
+
+# Disclosure statement {-}
+
+The author reports there are no competing interests to declare.
+
+# Data and source code availability {-}
+
+The source code of this paper, the source code of all simulations,
+  and the simulation results are available on GitHub:
+  [https://github.com/AndreyAkinshin/paper-frc](https://github.com/AndreyAkinshin/paper-frc).
+
+# Acknowledgments {-}
+
+The author thanks Ivan Pashchenko for valuable discussions.
+
+\clearpage
+
+# (APPENDIX) Appendix {-}
+
+# Reference implementation {#sec:refimpl}
+
+In our R reference implementation, we reuse the existing solution from the package `robustbase` ([@robustbase])
+  based on the fast $\BigO(n \log n)$ algorithm from [@croux1992]
+  and just redefine the bias-correction factors:
+
+```{r, file="reference-implementation.R", echo=TRUE}
+```
+
+\newpage
