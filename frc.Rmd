@@ -11,7 +11,7 @@ abstract: |
     their asymptotic Gaussian efficiency values are $58\%$ and $82\%$ respectively compared to $37\%$ for\ $\MAD_n$.
   Although these values look impressive, they are only asymptotic values.
   The actual Gaussian efficiency of $S_n$ and $Q_n$ for small sample sizes
-    is noticeable lower than in the asymptotic case.
+    is noticeably lower than in the asymptotic case.
 
   The original work by Rousseeuw and Croux (1993)
     provides only rough approximations of the finite-sample bias-correction factors for $S_n$, $Q_n$
